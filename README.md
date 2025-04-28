@@ -66,5 +66,4 @@ Sumit Shingane - shinganesumit80@gmail.com
 
 Project Link: https://sumit3162/smart-farming-helper
 
-![Image](https://drive.google.com/uc?export=view&id=1UQBFHpIb1Iz4ApQkAqW8G5K3TXzunYoH)
 
