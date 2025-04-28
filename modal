@@ -1,0 +1,136 @@
+
+# Import required libraries
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report, confusion_matrix
+import joblib
+import warnings
+warnings.filterwarnings('ignore')
+
+
+# Set style for visualizations
+sns.set_style('whitegrid')
+plt.rcParams['figure.figsize'] = (10, 6)
+
+# Generate synthetic crop data
+np.random.seed(42) 
+num_samples = 2200
+
+#  approximated from common datasets
+features_dict = {
+    'N': np.random.randint(0, 141, num_samples),
+    'P': np.random.randint(5, 146, num_samples),
+    'K': np.random.randint(5, 206, num_samples),
+        'temperature': np.random.uniform(8, 44, num_samples).round(2),
+        'ph': np.random.uniform(3.5, 9.5, num_samples).round(2),
+        'rainfall': np.random.uniform(20, 300, num_samples).round(2),
+    }
+# Define possible crop types 
+crop_types = ['rice', 'maize', 'chickpea', 'kidneybeans', 'pigeonpeas',
+              'mothbeans', 'mungbean', 'blackgram', 'lentil', 'pomegranate',
+              'banana', 'mango', 'grapes', 'watermelon', 'muskmelon', 'apple',
+              'orange', 'papaya', 'coconut', 'cotton', 'jute', 'coffee']
+
+# Assign crops randomly
+features_dict['crop'] = np.random.choice(crop_types, num_samples)
+
+# Create DataFrame
+synthetic_data = pd.DataFrame(features_dict)
+
+# Features: N, P, K, ph, rainfall, temperature
+# Target: crop
+column_order = ['N', 'P', 'K', 'ph', 'rainfall', 'temperature', 'crop']
+synthetic_data = synthetic_data[column_order]
+
+# Save to CSV
+synthetic_data.to_csv('crop_data.csv', index=False)
+print("Generated synthetic crop_data.csv")
+
+# Load and explore the dataset
+data = pd.read_csv('crop_data.csv')
+print(f"Dataset Shape: {data.shape}")
+data.head()
+# Visualize feature distributions
+plt.figure(figsize=(12, 8))
+for i, col in enumerate(['N', 'P', 'K', 'ph', 'rainfall', 'temperature']):
+    plt.subplot(2, 3, i+1)
+    sns.histplot(data[col], kde=True)
+    plt.title(f'Distribution of {col}')
+plt.tight_layout()
+plt.show()
+
+# Visualize crop distribution
+plt.figure(figsize=(10, 6))
+sns.countplot(y='crop', data=data, order=data['crop'].value_counts().index)
+plt.title('Crop Distribution in Dataset')
+plt.xlabel('Count')
+plt.ylabel('Crop Type')
+plt.show()
+
+# Feature Engineering
+features = data[['N', 'P', 'K', 'ph', 'rainfall', 'temperature']]
+target = data['crop']
+
+# Encode crop labels
+le = LabelEncoder()
+target_encoded = le.fit_transform(target)
+print(f"Encoded Classes: {le.classes_}")
+
+# Train-test split
+X_train, X_test, y_train, y_test = train_test_split(
+    features, target_encoded, test_size=0.2, random_state=42)
+
+print(f"Training set shape: {X_train.shape}")
+print(f"Testing set shape: {X_test.shape}")
+
+
+# Model Training
+model = RandomForestClassifier(n_estimators=100, random_state=42)
+model.fit(X_train, y_train)
+
+# Model Evaluation
+y_pred = model.predict(X_test)
+print("Classification Report:")
+print(classification_report(y_test, y_pred, target_names=le.classes_))
+
+
+# Confusion Matrix Visualization
+plt.figure(figsize=(12, 10))
+sns.heatmap(confusion_matrix(y_test, y_pred), 
+            annot=True, fmt='d',
+            xticklabels=le.classes_,
+            yticklabels=le.classes_,
+            cmap='Blues')
+plt.title('Confusion Matrix')
+plt.xlabel('Predicted')
+plt.ylabel('Actual')
+plt.xticks(rotation=45)
+plt.show()
+
+# Feature Importance
+feature_importance = pd.DataFrame({
+    'Feature': features.columns,
+    'Importance': model.feature_importances_
+}).sort_values('Importance', ascending=False)
+
+plt.figure(figsize=(10, 6))
+sns.barplot(x='Importance', y='Feature', data=feature_importance)
+plt.title('Feature Importance')
+plt.show()
+
+# Save model artifacts
+joblib.dump(model, 'crop_model.pkl')
+joblib.dump(le, 'label_encoder.pkl')
+np.save('feature_means.npy', features.mean().values)
+
+print(f"\nModel saved with accuracy: {model.score(X_test, y_test):.2f}")
+
+# Example Prediction
+sample_input = [[72, 45, 26, 6.5, 120, 25]]  # N, P, K, ph, rainfall, temp
+predicted_label = le.inverse_transform(model.predict(sample_input))[0]
+print(f"\nRecommended Crop for given conditions: {predicted_label}")
